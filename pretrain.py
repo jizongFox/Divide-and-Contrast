@@ -42,7 +42,7 @@ projector = Projector(input_dim=model.feature_dim, hidden_dim=256, output_dim=25
 
 optimizer = torch.optim.Adam(chain(model.parameters(), projector.parameters()), lr=args.lr, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
-scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=args.max_epoch, after_scheduler=scheduler)
+scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 
 teacher_model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
 teacher_model = detach_grad(teacher_model)
@@ -56,8 +56,9 @@ criterion = SupConLoss1(temperature=0.07)
 with model.set_grad(enable_fc=False, enable_extractor=True):
     for epoch in range(1, args.max_epoch):
         indicator = tqdm(range(args.num_batches))
-        indicator.set_description_str(f"Pretrain Epoch {epoch:3d}")
         loss_meter = AverageValueMeter()
+        indicator.set_description_str(f"Pretrain Epoch {epoch:3d} lr:{optimizer.param_groups[0]['lr']}")
+
         for i, data in zip(indicator, train_loader):
             (image, image_tf), target = data
             image, image_tf = image.cuda(), image_tf.cuda()

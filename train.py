@@ -46,7 +46,7 @@ test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=16)
 model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
-scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=args.max_epoch, after_scheduler=scheduler)
+scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 best_score = 0
 
 if args.pretrained_checkpoint:
@@ -82,7 +82,7 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
     for epoch in range(1, args.max_epoch):
         model.train()
         indicator = tqdm(range(args.num_batches))
-        indicator.set_description_str(f"Training Epoch {epoch: 3d}")
+        indicator.set_description_str(f"Training Epoch {epoch: 3d} lr:{optimizer.param_groups[0]['lr']}")
         loss_meter = AverageValueMeter()
         acc_meter = AverageValueMeter()
         is_best = False
