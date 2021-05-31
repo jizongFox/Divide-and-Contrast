@@ -8,11 +8,15 @@ str_augment = transforms.Compose([
     RandAugment(),
     transforms.ToTensor()
 ])
-# taken from https://github.com/HobbitLong/SupContrast/blob/master/main_supcon.py
+test_augment = transforms.Compose([
+    transforms.CenterCrop(28),
+    transforms.ToTensor()
+])
+# # taken from https://github.com/HobbitLong/SupContrast/blob/master/main_supcon.py
 # mean = (0.4914, 0.4822, 0.4465)
 # std = (0.2023, 0.1994, 0.2010)
 # normalize = transforms.Normalize(mean=mean, std=std)
-# train_transform = transforms.Compose([
+# str_augment = transforms.Compose([
 #     transforms.RandomResizedCrop(size=28, scale=(0.2, 1.)),
 #     transforms.RandomHorizontalFlip(),
 #     transforms.RandomApply([
@@ -22,11 +26,11 @@ str_augment = transforms.Compose([
 #     transforms.ToTensor(),
 #     normalize,
 # ])
-
-test_augment = transforms.Compose([
-    transforms.CenterCrop(28),
-    transforms.ToTensor()
-])
+# test_augment = transforms.Compose([
+#     transforms.CenterCrop(28),
+#     transforms.ToTensor(),
+#     normalize,
+# ])
 
 
 class TransformTwice:

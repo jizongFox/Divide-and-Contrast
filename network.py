@@ -45,7 +45,7 @@ class Model(nn.Module):
         previous_state = OrderedDict()
         for name, param in self.named_parameters():
             previous_state[name] = param.requires_grad
-            param.requires_grad = enable_extractor if "fc" in name else enable_fc
+            param.requires_grad = enable_fc if "fc" in name else enable_extractor
         yield self
         logger.debug(f"restore grad")
         for name, param in self.named_parameters():
