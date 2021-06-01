@@ -43,12 +43,12 @@ class Model(nn.Module):
     def set_grad(self, enable_extractor=True, enable_fc=True):
         logger.debug(f"setting grad: {enable_extractor} for extractor, grad: {enable_fc} for fc")
         previous_state = OrderedDict()
-        for name, param in self.named_parameters():
+        for name, param in self._resnet.named_parameters():
             previous_state[name] = param.requires_grad
             param.requires_grad = enable_fc if "fc" in name else enable_extractor
         yield self
         logger.debug(f"restore grad")
-        for name, param in self.named_parameters():
+        for name, param in self._resnet.named_parameters():
             param.requires_grad = previous_state[name]
 
     @property

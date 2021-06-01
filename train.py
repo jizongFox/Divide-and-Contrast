@@ -4,6 +4,7 @@ import os
 import torch
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter
+from deepclustering2.optim import RAdam
 from deepclustering2.schedulers import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
@@ -27,24 +28,24 @@ def get_args():
 
     args = parser.parse_args()
 
-    if args.pretrained_checkpoint is None and args.enable_grad_4_extractor is False:
-        raise RuntimeError("You should either provide a checkpoint path or enable extractor gradient.")
+    # if args.pretrained_checkpoint is None and args.enable_grad_4_extractor is False:
+    #     raise RuntimeError("You should either provide a checkpoint path or enable extractor gradient.")
     return args
 
 
 args = get_args()
 save_dir = args.save_dir
-if os.path.exists(save_dir):
-    raise FileExistsError(save_dir)
+# if os.path.exists(save_dir):
+#     raise FileExistsError(save_dir)
 logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
 
-train_loader = iter(DataLoader(tra_set, batch_size=256, num_workers=16,
+train_loader = iter(DataLoader(tra_set, batch_size=64, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=16)
 
 model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
+optimizer = RAdam(model.parameters(), lr=args.lr, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 best_score = 0
@@ -82,9 +83,8 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
     for epoch in range(1, args.max_epoch):
         model.train()
         indicator = tqdm(range(args.num_batches))
-        indicator.set_description_str(f"Training Epoch {epoch: 3d} lr:{optimizer.param_groups[0]['lr']}")
-        loss_meter = AverageValueMeter()
-        acc_meter = AverageValueMeter()
+        indicator.set_description_str(f"Training Epoch {epoch: 3d} lr:{optimizer.param_groups[0]['lr']:.3e}")
+        loss_meter, acc_meter = AverageValueMeter(), AverageValueMeter()
         is_best = False
         for i, data in zip(indicator, train_loader):
             (image, image_tf), target = data

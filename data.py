@@ -1,36 +1,35 @@
-from randaugment import RandAugment
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-str_augment = transforms.Compose([
-    transforms.RandomCrop(28, padding=2),
-    transforms.RandomHorizontalFlip(),
-    RandAugment(),
-    transforms.ToTensor()
-])
-test_augment = transforms.Compose([
-    transforms.CenterCrop(28),
-    transforms.ToTensor()
-])
-# # taken from https://github.com/HobbitLong/SupContrast/blob/master/main_supcon.py
-# mean = (0.4914, 0.4822, 0.4465)
-# std = (0.2023, 0.1994, 0.2010)
-# normalize = transforms.Normalize(mean=mean, std=std)
 # str_augment = transforms.Compose([
-#     transforms.RandomResizedCrop(size=28, scale=(0.2, 1.)),
+#     transforms.RandomCrop(28, padding=2),
 #     transforms.RandomHorizontalFlip(),
-#     transforms.RandomApply([
-#         transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
-#     ], p=0.8),
-#     transforms.RandomGrayscale(p=0.2),
-#     transforms.ToTensor(),
-#     normalize,
+#     RandAugment(),
+#     transforms.ToTensor()
 # ])
 # test_augment = transforms.Compose([
 #     transforms.CenterCrop(28),
-#     transforms.ToTensor(),
-#     normalize,
+#     transforms.ToTensor()
 # ])
+# # taken from https://github.com/HobbitLong/SupContrast/blob/master/main_supcon.py
+mean = (0.4914, 0.4822, 0.4465)
+std = (0.2023, 0.1994, 0.2010)
+normalize = transforms.Normalize(mean=mean, std=std)
+str_augment = transforms.Compose([
+    transforms.RandomResizedCrop(size=28, scale=(0.2, 1.)),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomApply([
+        transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+    ], p=0.8),
+    transforms.RandomGrayscale(p=0.2),
+    transforms.ToTensor(),
+    normalize,
+])
+test_augment = transforms.Compose([
+    transforms.CenterCrop(28),
+    transforms.ToTensor(),
+    normalize,
+])
 
 
 class TransformTwice:

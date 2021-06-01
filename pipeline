@@ -1,10 +1,15 @@
 #!/bin/bash
 set -e
-lr=0.00000005
-max_epoch=100
-num_batches=500
-python pretrain.py --save_dir pretrained_moclr --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+lr=0.00005
+max_epoch=80
+num_batches=200
+export PYTHONOPTIMIZE=1
+export OPM_NUM_THREADS=1
+save_dir=0601
 
-python train.py --pretrained_checkpoint=pretrained_moclr/pretrain.pth --save_dir=finetune --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+python train.py --enable_grad_4_extractor --save_dir=${save_dir}/baseline --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+python pretrain.py --save_dir ${save_dir}/pretrained_moclr --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+python pretrain.py --save_dir ${save_dir}/pretrained_simclr --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
 
-python train.py --enable_grad_4_extractor --save_dir=baseline --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+python train.py --pretrained_checkpoint=${save_dir}/pretrained_moclr/pretrain.pth --save_dir=${save_dir}/finetune_moclr --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
+python train.py --pretrained_checkpoint=${save_dir}/pretrained_simclr/pretrain.pth --save_dir=${save_dir}/finetune_simclr --max_epoch=${max_epoch} --num_batches=${num_batches} --lr=${lr}
