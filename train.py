@@ -23,14 +23,15 @@ def get_args():
     parser.add_argument("--checkpoint", default=None, type=str, )
     parser.add_argument("--enable_grad_4_extractor", action="store_true", default=False)
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
-    parser.add_argument("--batch_size", type=int, default=256, help="batch_size")
+    parser.add_argument("--num_batches", type=int, default=200, help="batch_size")
+    parser.add_argument("--batch_size", type=int, default=1024, help="batch_size")
     parser.add_argument("--max_epoch", type=int, default=500, help="max_epoch")
     parser.add_argument("--lr", type=float, default=0.01, help="lr")
 
     args = parser.parse_args()
 
-    # if args.pretrained_checkpoint is None and args.enable_grad_4_extractor is False:
-    #     raise RuntimeError("You should either provide a checkpoint path or enable extractor gradient.")
+    if args.pretrained_checkpoint is None and args.enable_grad_4_extractor is False:
+        raise RuntimeError("You should either provide a checkpoint path or enable extractor gradient.")
     return args
 
 
@@ -45,7 +46,7 @@ writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 tra_set, test_set = get_train_datasets()
 train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
-test_loader = DataLoader(test_set, batch_size=128, shuffle=False, num_workers=16)
+test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=16)
 
 model = Model(input_dim=3, num_classes=10).cuda()
 model = nn.DataParallel(model)
@@ -96,7 +97,7 @@ def val(epoch):
     return acc_meter.summary()['mean']
 
 
-num_batches = len(tra_set) // args.batch_size
+num_batches = args.num_batches
 with model.module.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extractor):
     for epoch in range(1, args.max_epoch):
         model.train()

@@ -24,7 +24,7 @@ def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
     parser.add_argument("--max_epoch", type=int, default=100, help="max_epoch")
-    parser.add_argument("--num_batches", type=int, default=500, help="max_epoch")
+    parser.add_argument("--num_batches", type=int, default=500, help="num_batches")
     parser.add_argument("--lr", type=float, default=1e-3, help="lr")
     parser.add_argument("--batch_size", type=int, default=256, help="batch_size")
     parser.add_argument("--use-simclr", default=False, action="store_true")
@@ -45,7 +45,7 @@ train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=
 model = Model(input_dim=3, num_classes=10).cuda()
 model = nn.DataParallel(model)
 
-projector = Projector(input_dim=model.module.feature_dim, hidden_dim=256, output_dim=256).cuda()
+projector = Projector(input_dim=model.module.feature_dim, hidden_dim=2048, output_dim=2048).cuda()
 projector = nn.DataParallel(projector)
 
 optimizer = RAdam(chain(model.parameters(), projector.parameters()), lr=args.lr / 100, weight_decay=5e-5)
