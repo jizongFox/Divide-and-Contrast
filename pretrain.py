@@ -9,6 +9,7 @@ from deepclustering2.models import ema_updater as EMA_Updater
 from deepclustering2.optim import RAdam
 from deepclustering2.schedulers.warmup_scheduler import GradualWarmupScheduler
 from loguru import logger
+from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -24,7 +25,8 @@ def get_args():
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
     parser.add_argument("--max_epoch", type=int, default=100, help="max_epoch")
     parser.add_argument("--num_batches", type=int, default=500, help="max_epoch")
-    parser.add_argument("--lr", type=float, default=1e-5, help="lr")
+    parser.add_argument("--lr", type=float, default=1e-3, help="lr")
+    parser.add_argument("--batch_size", type=int, default=256, help="batch_size")
     parser.add_argument("--use-simclr", default=False, action="store_true")
     args = parser.parse_args()
     return args
@@ -32,42 +34,50 @@ def get_args():
 
 args = get_args()
 save_dir = args.save_dir
-# if os.path.exists(save_dir):
-#     raise FileExistsError(save_dir)
 logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
 writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
 tra_set = get_pretrain_dataset()
-train_loader = iter(DataLoader(tra_set, batch_size=128, num_workers=16,
+train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 
-model = Model(input_dim=3, num_classes=10, ).cuda()
-projector = Projector(input_dim=model.feature_dim, hidden_dim=256, output_dim=256).cuda()
+model = Model(input_dim=3, num_classes=10).cuda()
+model = nn.DataParallel(model)
 
-optimizer = RAdam(chain(model.parameters(), projector.parameters()), lr=args.lr, weight_decay=5e-5)
+projector = Projector(input_dim=model.module.feature_dim, hidden_dim=256, output_dim=256).cuda()
+projector = nn.DataParallel(projector)
+
+optimizer = RAdam(chain(model.parameters(), projector.parameters()), lr=args.lr / 100, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 
 if args.use_simclr:
     teacher_model = model
     teacher_projector = projector
+    ema_updater1 = None
+    ema_updater2 = None
 else:
-    teacher_model = Model(input_dim=3, num_classes=10, ).cuda()
+    teacher_model = Model(input_dim=3, num_classes=10).cuda()
+    teacher_model = nn.DataParallel(teacher_model)
     teacher_model = detach_grad(teacher_model)
-    teacher_projector = Projector(input_dim=model.feature_dim, hidden_dim=256, output_dim=256).cuda()
+    teacher_projector = Projector(input_dim=model.module.feature_dim, hidden_dim=2048, output_dim=2048).cuda()
+    teacher_projector = nn.DataParallel(teacher_projector)
     teacher_projector = detach_grad(teacher_projector)
+
     ema_updater1 = EMA_Updater()
     ema_updater2 = EMA_Updater()
 
 criterion = SupConLoss1(temperature=0.07)
 # pretrain
-with model.set_grad(enable_fc=False, enable_extractor=True):
+with model.module.set_grad(enable_fc=False, enable_extractor=True):
     for epoch in range(1, args.max_epoch):
         model.train()
         indicator = tqdm(range(args.num_batches))
         loss_meter = AverageValueMeter()
+        lr_meter = AverageValueMeter()
         indicator.set_description_str(f"Pretrain Epoch {epoch:3d} lr:{optimizer.param_groups[0]['lr']}")
+        lr_meter.add(optimizer.param_groups[0]['lr'])
 
         for i, data in zip(indicator, train_loader):
             (image, image_tf), target = data
@@ -93,7 +103,7 @@ with model.set_grad(enable_fc=False, enable_extractor=True):
         scheduler.step()
         logger.info(indicator.desc + indicator.postfix)
         writer.add_scalar("pre_train/loss", loss_meter.summary()['mean'], global_step=epoch)
-
+        writer.add_scalar("pre_train/lr", lr_meter.summary()['mean'], global_step=epoch)
 
         checkpoint = {
             "model": model.state_dict(),

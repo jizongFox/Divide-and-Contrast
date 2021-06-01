@@ -48,9 +48,12 @@ train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=
 test_loader = DataLoader(test_set, batch_size=128, shuffle=False, num_workers=16)
 
 model = Model(input_dim=3, num_classes=10).cuda()
+model = nn.DataParallel(model)
+
 optimizer = Adam(model.parameters(), lr=args.lr / 100, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
+
 best_score = 0
 
 if args.pretrained_checkpoint:
@@ -94,12 +97,15 @@ def val(epoch):
 
 
 num_batches = len(tra_set) // args.batch_size
-with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extractor):
+with model.module.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extractor):
     for epoch in range(1, args.max_epoch):
         model.train()
         indicator = tqdm(range(num_batches))
         indicator.set_description_str(f"Training Epoch {epoch: 3d} lr:{optimizer.param_groups[0]['lr']:.3e}")
         loss_meter, acc_meter = AverageValueMeter(), AverageValueMeter()
+        lr_meter = AverageValueMeter()
+        lr_meter.add(optimizer.param_groups[0]['lr'])
+
         is_best = False
         for i, data in zip(indicator, train_loader):
             image, target = data
@@ -117,6 +123,7 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
         logger.info(indicator.desc + "  " + indicator.postfix)
         writer.add_scalar("train/loss", loss_meter.summary()['mean'], global_step=epoch)
         writer.add_scalar("train/acc", acc_meter.summary()['mean'], global_step=epoch)
+        writer.add_scalar("train/lr", lr_meter.summary()['mean'], global_step=epoch)
 
         cur_score = val(epoch)
         if cur_score > best_score:
