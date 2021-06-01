@@ -4,12 +4,12 @@ import os
 import torch
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter
-from deepclustering2.optim import RAdam
 from deepclustering2.schedulers import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from data import tra_set, test_set
@@ -41,6 +41,7 @@ save_dir = args.save_dir
 #     raise FileExistsError(save_dir)
 logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
+writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
 train_loader = iter(DataLoader(tra_set, batch_size=64, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
@@ -86,6 +87,8 @@ def val(epoch):
         indicator.set_postfix_str(
             f"loss: {loss_meter.summary()['mean']:.3f}, acc: {acc_meter.summary()['mean']:.3f}")
     logger.info(indicator.desc + "  " + indicator.postfix)
+    writer.add_scalars("val", tag_scalar_dict={"loss": loss_meter.summary()['mean'],
+                                               "acc": acc_meter.summary()['mean']})
     return acc_meter.summary()['mean']
 
 
@@ -110,6 +113,8 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
                 f"loss: {loss_meter.summary()['mean']:.3f}, acc: {acc_meter.summary()['mean']:.3f}")
 
         logger.info(indicator.desc + "  " + indicator.postfix)
+        writer.add_scalars("train", tag_scalar_dict={"loss": loss_meter.summary()['mean'],
+                                                     "acc": acc_meter.summary()['mean']})
 
         cur_score = val(epoch)
         if cur_score > best_score:

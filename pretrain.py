@@ -6,12 +6,14 @@ import torch
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
+from deepclustering2.optim import RAdam
 from deepclustering2.schedulers.warmup_scheduler import GradualWarmupScheduler
 from loguru import logger
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from deepclustering2.optim import RAdam
+
 from data import tra_set
 from loss import SupConLoss1
 from network import Model, Projector, detach_grad
@@ -34,11 +36,12 @@ save_dir = args.save_dir
 #     raise FileExistsError(save_dir)
 logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
+writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
 train_loader = iter(DataLoader(tra_set, batch_size=128, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 
-model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
+model = Model(input_dim=3, num_classes=10, ).cuda()
 projector = Projector(input_dim=model.feature_dim, hidden_dim=256, output_dim=256).cuda()
 
 optimizer = RAdam(chain(model.parameters(), projector.parameters()), lr=args.lr, weight_decay=5e-5)
@@ -49,7 +52,7 @@ if args.use_simclr:
     teacher_model = model
     teacher_projector = projector
 else:
-    teacher_model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
+    teacher_model = Model(input_dim=3, num_classes=10, ).cuda()
     teacher_model = detach_grad(teacher_model)
     teacher_projector = Projector(input_dim=model.feature_dim, hidden_dim=256, output_dim=256).cuda()
     teacher_projector = detach_grad(teacher_projector)
@@ -88,6 +91,7 @@ with model.set_grad(enable_fc=False, enable_extractor=True):
 
         scheduler.step()
         logger.info(indicator.desc + indicator.postfix)
+        writer.add_scalars("train", tag_scalar_dict={"loss": loss_meter.summary()['mean']})
 
         checkpoint = {
             "model": model.state_dict(),
