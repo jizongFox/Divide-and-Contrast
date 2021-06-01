@@ -8,6 +8,7 @@ from deepclustering2.optim import RAdam
 from deepclustering2.schedulers import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -19,6 +20,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pretrained_checkpoint", default=None, type=str,
                         help="pretrained checkpoint trained by `pretrain.py`")
+    parser.add_argument("--checkpoint", default=None, type=str, )
     parser.add_argument("--enable_grad_4_extractor", action="store_true", default=False)
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
 
@@ -44,8 +46,8 @@ train_loader = iter(DataLoader(tra_set, batch_size=64, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=16)
 
-model = Model(input_dim=3, num_classes=10, pretrained=False).cuda()
-optimizer = RAdam(model.parameters(), lr=args.lr, weight_decay=5e-5)
+model = Model(input_dim=3, num_classes=10).cuda()
+optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 best_score = 0
@@ -54,6 +56,14 @@ if args.pretrained_checkpoint:
     checkpoint = torch.load(args.pretrained_checkpoint, map_location="cuda")
     model.load_state_dict(checkpoint["model"])
     logger.info(f"loaded checkpoint from {args.pretrained_checkpoint}.")
+
+if args.checkpoint:
+    checkpoint = torch.load(args.checkpoint, map_location="cuda")
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    scheduler.load_state_dict(checkpoint["scheduler"])
+    best_score = checkpoint["best_score"]
+    logger.info(f"loaded checkpoint from {args.checkpoint}.")
 
 criterion = nn.CrossEntropyLoss()
 
