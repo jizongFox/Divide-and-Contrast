@@ -15,7 +15,7 @@ from torchvision.datasets import CIFAR10
 mean = (0.4914, 0.4822, 0.4465)
 std = (0.2023, 0.1994, 0.2010)
 normalize = transforms.Normalize(mean=mean, std=std)
-str_augment = transforms.Compose([
+pretrain_augment = transforms.Compose([
     transforms.RandomResizedCrop(size=28, scale=(0.2, 1.)),
     transforms.RandomHorizontalFlip(),
     transforms.RandomApply([
@@ -25,8 +25,15 @@ str_augment = transforms.Compose([
     transforms.ToTensor(),
     normalize,
 ])
-test_augment = transforms.Compose([
-    transforms.CenterCrop(28),
+
+train_transform = transforms.Compose([
+    transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    normalize,
+])
+
+test_transform = transforms.Compose([
     transforms.ToTensor(),
     normalize,
 ])
@@ -42,5 +49,12 @@ class TransformTwice:
         return [self._transform(*args, **kwargs), self._transform(*args, **kwargs)]
 
 
-tra_set = CIFAR10(root="./data", train=True, download=True, transform=TransformTwice(str_augment))
-test_set = CIFAR10(root="./data", train=False, download=True, transform=test_augment)
+def get_pretrain_dataset():
+    tra_set = CIFAR10(root="./data", train=True, download=True, transform=TransformTwice(pretrain_augment))
+    return tra_set
+
+
+def get_train_datasets():
+    tra_set = CIFAR10(root="./data", train=True, download=True, transform=train_transform)
+    test_set = CIFAR10(root="./data", train=False, download=True, transform=test_transform)
+    return tra_set, test_set

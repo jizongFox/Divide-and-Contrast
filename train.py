@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from data import tra_set, test_set
+from data import get_train_datasets
 from network import Model
 
 
@@ -43,7 +43,8 @@ logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
 writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
-train_loader = iter(DataLoader(tra_set, batch_size=64, num_workers=16,
+tra_set, test_set = get_train_datasets()
+train_loader = iter(DataLoader(tra_set, batch_size=128, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=16)
 
@@ -100,7 +101,7 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
         loss_meter, acc_meter = AverageValueMeter(), AverageValueMeter()
         is_best = False
         for i, data in zip(indicator, train_loader):
-            (image, image_tf), target = data
+            image, target = data
             image, target = image.cuda(), target.cuda()
             pred_logits, _ = model(image)
             loss = criterion(pred_logits, target)

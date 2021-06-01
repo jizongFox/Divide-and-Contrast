@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from data import tra_set
+from data import get_pretrain_dataset
 from loss import SupConLoss1
 from network import Model, Projector, detach_grad
 
@@ -38,6 +38,7 @@ logger.add(os.path.join(save_dir, "loguru.log"), level="TRACE")
 logger.info(args)
 writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
+tra_set = get_pretrain_dataset()
 train_loader = iter(DataLoader(tra_set, batch_size=128, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
 
