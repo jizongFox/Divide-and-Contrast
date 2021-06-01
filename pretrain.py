@@ -92,7 +92,8 @@ with model.set_grad(enable_fc=False, enable_extractor=True):
 
         scheduler.step()
         logger.info(indicator.desc + indicator.postfix)
-        writer.add_scalars("train", tag_scalar_dict={"loss": loss_meter.summary()['mean']})
+        writer.add_scalar("pre_train/loss", loss_meter.summary()['mean'], global_step=epoch)
+
 
         checkpoint = {
             "model": model.state_dict(),

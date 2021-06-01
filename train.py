@@ -88,8 +88,9 @@ def val(epoch):
         indicator.set_postfix_str(
             f"loss: {loss_meter.summary()['mean']:.3f}, acc: {acc_meter.summary()['mean']:.3f}")
     logger.info(indicator.desc + "  " + indicator.postfix)
-    writer.add_scalars("val", tag_scalar_dict={"loss": loss_meter.summary()['mean'],
-                                               "acc": acc_meter.summary()['mean']})
+    writer.add_scalar("val/loss", loss_meter.summary()['mean'], global_step=epoch)
+    writer.add_scalar("val/acc", acc_meter.summary()['mean'], global_step=epoch)
+
     return acc_meter.summary()['mean']
 
 
@@ -114,8 +115,8 @@ with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extracto
                 f"loss: {loss_meter.summary()['mean']:.3f}, acc: {acc_meter.summary()['mean']:.3f}")
 
         logger.info(indicator.desc + "  " + indicator.postfix)
-        writer.add_scalars("train", tag_scalar_dict={"loss": loss_meter.summary()['mean'],
-                                                     "acc": acc_meter.summary()['mean']})
+        writer.add_scalar("train/loss", loss_meter.summary()['mean'], global_step=epoch)
+        writer.add_scalar("train/acc", acc_meter.summary()['mean'], global_step=epoch)
 
         cur_score = val(epoch)
         if cur_score > best_score:
