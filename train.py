@@ -23,10 +23,9 @@ def get_args():
     parser.add_argument("--checkpoint", default=None, type=str, )
     parser.add_argument("--enable_grad_4_extractor", action="store_true", default=False)
     parser.add_argument("--save_dir", required=True, type=str, help="save_dir")
-
-    parser.add_argument("--max_epoch", type=int, default=100, help="max_epoch")
-    parser.add_argument("--num_batches", type=int, default=500, help="max_epoch")
-    parser.add_argument("--lr", type=float, default=1e-5, help="lr")
+    parser.add_argument("--batch_size", type=int, default=256, help="batch_size")
+    parser.add_argument("--max_epoch", type=int, default=500, help="max_epoch")
+    parser.add_argument("--lr", type=float, default=0.01, help="lr")
 
     args = parser.parse_args()
 
@@ -44,12 +43,12 @@ logger.info(args)
 writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
 tra_set, test_set = get_train_datasets()
-train_loader = iter(DataLoader(tra_set, batch_size=128, num_workers=16,
+train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=16,
                                sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
-test_loader = DataLoader(test_set, batch_size=64, shuffle=False, num_workers=16)
+test_loader = DataLoader(test_set, batch_size=128, shuffle=False, num_workers=16)
 
 model = Model(input_dim=3, num_classes=10).cuda()
-optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=5e-5)
+optimizer = Adam(model.parameters(), lr=args.lr / 100, weight_decay=5e-5)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 best_score = 0
@@ -94,10 +93,11 @@ def val(epoch):
     return acc_meter.summary()['mean']
 
 
+num_batches = len(tra_set) // args.batch_size
 with model.set_grad(enable_fc=True, enable_extractor=args.enable_grad_4_extractor):
     for epoch in range(1, args.max_epoch):
         model.train()
-        indicator = tqdm(range(args.num_batches))
+        indicator = tqdm(range(num_batches))
         indicator.set_description_str(f"Training Epoch {epoch: 3d} lr:{optimizer.param_groups[0]['lr']:.3e}")
         loss_meter, acc_meter = AverageValueMeter(), AverageValueMeter()
         is_best = False
