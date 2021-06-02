@@ -6,13 +6,13 @@ import torch
 from deepclustering2.dataloader.sampler import InfiniteRandomSampler
 from deepclustering2.meters2 import AverageValueMeter
 from deepclustering2.models import ema_updater as EMA_Updater
-from deepclustering2.optim import RAdam
 from deepclustering2.schedulers.warmup_scheduler import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch_optimizer import RAdam
 from tqdm import tqdm
 
 from data import get_pretrain_dataset
@@ -45,7 +45,7 @@ train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=
 model = Model(input_dim=3, num_classes=10).cuda()
 model = nn.DataParallel(model)
 
-projector = Projector(input_dim=model.module.feature_dim, hidden_dim=2048, output_dim=2048).cuda()
+projector = Projector(input_dim=model.module.feature_dim, hidden_dim=model.module.feature_dim, output_dim=128).cuda()
 projector = nn.DataParallel(projector)
 
 optimizer = RAdam(chain(model.parameters(), projector.parameters()), lr=args.lr / 100, weight_decay=5e-5)
@@ -61,7 +61,8 @@ else:
     teacher_model = Model(input_dim=3, num_classes=10).cuda()
     teacher_model = nn.DataParallel(teacher_model)
     teacher_model = detach_grad(teacher_model)
-    teacher_projector = Projector(input_dim=model.module.feature_dim, hidden_dim=2048, output_dim=2048).cuda()
+    teacher_projector = Projector(input_dim=model.module.feature_dim, hidden_dim=model.module.feature_dim,
+                                  output_dim=128).cuda()
     teacher_projector = nn.DataParallel(teacher_projector)
     teacher_projector = detach_grad(teacher_projector)
 

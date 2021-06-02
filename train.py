@@ -7,13 +7,16 @@ from deepclustering2.meters2 import AverageValueMeter
 from deepclustering2.schedulers import GradualWarmupScheduler
 from loguru import logger
 from torch import nn
-from torch.optim import Adam
+from torch.backends import cudnn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+# from torch_optimizer import RAdam
 from tqdm import tqdm
 
 from data import get_train_datasets
 from network import Model
+
+cudnn.benchmark = True
 
 
 def get_args():
@@ -26,7 +29,7 @@ def get_args():
     parser.add_argument("--num_batches", type=int, default=200, help="batch_size")
     parser.add_argument("--batch_size", type=int, default=1024, help="batch_size")
     parser.add_argument("--max_epoch", type=int, default=500, help="max_epoch")
-    parser.add_argument("--lr", type=float, default=0.01, help="lr")
+    parser.add_argument("--lr", type=float, default=0.8, help="lr")
 
     args = parser.parse_args()
 
@@ -45,13 +48,13 @@ writer = SummaryWriter(log_dir=os.path.join(save_dir, "tensorboard"))
 
 tra_set, test_set = get_train_datasets()
 train_loader = iter(DataLoader(tra_set, batch_size=args.batch_size, num_workers=16,
-                               sampler=InfiniteRandomSampler(tra_set, shuffle=True)))
-test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=16)
+                               sampler=InfiniteRandomSampler(tra_set, shuffle=True), pin_memory=True))
+test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=16, pin_memory=True)
 
 model = Model(input_dim=3, num_classes=10).cuda()
 model = nn.DataParallel(model)
 
-optimizer = Adam(model.parameters(), lr=args.lr / 100, weight_decay=5e-5)
+optimizer = torch.optim.SGD(model.parameters(), momentum=0.9, lr=args.lr / 100, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epoch - 10, eta_min=1e-7)
 scheduler = GradualWarmupScheduler(optimizer, multiplier=100, total_epoch=10, after_scheduler=scheduler)
 
@@ -76,12 +79,11 @@ criterion = nn.CrossEntropyLoss()
 @torch.no_grad()
 def val(epoch):
     model.eval()
-    length = len(test_loader)
-    indicator = tqdm(range(length))
+    indicator = tqdm(test_loader)
     indicator.set_description_str(f"Validating Epoch {epoch: 3d}")
     loss_meter = AverageValueMeter()
     acc_meter = AverageValueMeter()
-    for i, data in zip(indicator, test_loader):
+    for i, data in enumerate(indicator):
         image, target = data
         image, target = image.cuda(), target.cuda()
         pred_logits, _ = model(image)
