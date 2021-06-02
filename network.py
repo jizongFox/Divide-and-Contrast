@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from loguru import logger
-from torchvision.models import resnet50
 
 
 class BasicBlock(nn.Module):
@@ -76,7 +75,7 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
-        self.conv1 = nn.Conv2d(input_dim, self.in_planes, kernel_size=3, stride=1, padding=1,
+        self.conv1 = nn.Conv2d(input_dim, self.in_planes, kernel_size=3, stride=1, padding=1,  # noqa
                                bias=False)
         self.bn1 = nn.BatchNorm2d(self.in_planes)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
